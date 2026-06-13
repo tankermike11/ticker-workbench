@@ -1,5 +1,5 @@
 /* ============================================================
-   Old Lucky Dog Brokerage — Ticker Event Workbench
+   One Lucky Dog Brokerage — Ticker Event Workbench
    Brand system: Bone surface · Kennel Black text · Copper accents
    Light mode research surface (per PRD §20)
    ============================================================ */
@@ -104,9 +104,10 @@ body {
   text-decoration: none;
 }
 .logo-badge {
-  width: 34px;
-  height: 34px;
+  height: 40px;
+  width: auto;
   flex-shrink: 0;
+  display: block;
 }
 .logo-text {
   display: flex;
