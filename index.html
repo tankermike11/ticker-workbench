@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NVDA — Ticker Event Workbench | Old Lucky Dog Brokerage</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+</head>
+<body>
+
+<!-- ====================================================
+     GLOBAL HEADER
+     ==================================================== -->
+<header class="global-header">
+  <!-- Logo -->
+  <a href="#" class="header-logo" style="text-decoration:none">
+    <svg class="logo-badge" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="32" height="32" rx="5" stroke="#BB7333" stroke-width="1.2"/>
+      <rect x="4" y="4" width="26" height="26" rx="3" fill="#0D1B1E"/>
+      <!-- Dog tag hole -->
+      <circle cx="17" cy="6.5" r="1.5" fill="none" stroke="#BB7333" stroke-width="1"/>
+      <!-- Dog silhouette (simplified) -->
+      <ellipse cx="17" cy="19" rx="7.5" ry="6" fill="#F5F3EE" opacity="0.9"/>
+      <ellipse cx="13" cy="15" rx="3.5" ry="4.5" fill="#F5F3EE" opacity="0.9"/>
+      <ellipse cx="11" cy="13" rx="1.8" ry="1.3" fill="#F5F3EE" opacity="0.9"/>
+    </svg>
+    <div class="logo-text">
+      <span class="logo-name">Old Lucky Dog</span>
+      <span class="logo-sub">Brokerage</span>
+    </div>
+  </a>
+
+  <div class="header-divider"></div>
+
+  <!-- Ticker identity -->
+  <div class="header-ticker">
+    <div class="ticker-symbol">NVDA</div>
+    <div class="ticker-company">NVIDIA<br>Corporation</div>
+    <div class="ticker-price">
+      <span class="price-value" id="hdr-price">$881.50</span>
+      <span class="price-change positive" id="hdr-change">▲ +10.58 (+1.21%)</span>
+    </div>
+  </div>
+
+  <div class="header-divider"></div>
+
+  <!-- Event identity -->
+  <div class="header-event">
+    <div>
+      <span class="event-badge">Earnings</span>
+      <span class="event-quarter" style="margin-left:6px">Q3 FY25</span>
+    </div>
+    <div style="display:flex;gap:5px;margin-top:4px">
+      <span class="chip chip-confirmed">✓ Confirmed</span>
+      <span class="chip chip-timing">After Market</span>
+    </div>
+    <div class="event-countdown">
+      <span class="countdown-label">in</span>
+      <span class="countdown-value" id="hdr-countdown">2d 4h 23m</span>
+    </div>
+  </div>
+
+  <div class="header-divider"></div>
+
+  <!-- Expiry -->
+  <div class="header-expiry">
+    <div class="expiry-label">Relevant Expiry</div>
+    <div class="expiry-row">
+      <span class="expiry-value">Nov 22, 2024</span>
+      <span class="expiry-dte">2 DTE</span>
+    </div>
+  </div>
+
+  <!-- Freshness -->
+  <div class="header-freshness">
+    <div class="freshness-dot"></div>
+    <div class="freshness-text">Data as of 3:47 PM ET</div>
+  </div>
+
+  <div class="header-spacer"></div>
+
+  <!-- Actions -->
+  <div class="header-actions">
+    <button class="btn-ghost">Save</button>
+    <button class="btn-ghost">Export</button>
+    <button class="btn-ghost">Compare</button>
+    <button class="btn-primary-sm">Open in Chain →</button>
+  </div>
+</header>
+
+<!-- ====================================================
+     WORKBENCH LAYOUT: RAIL + CANVAS + DRAWER
+     ==================================================== -->
+<div class="workbench-wrap">
+
+  <!-- LEFT: Study Control Rail -->
+  <aside class="control-rail" id="controlRail">
+    <div class="rail-top">
+      <div class="obs-counter">
+        <span class="obs-n" id="obsCount">N = 21</span>
+        <span class="obs-detail">observations</span>
+        <span class="obs-excluded" id="obsExcluded">2 excluded</span>
+      </div>
+      <button class="rail-toggle-btn" id="railToggle" onclick="toggleRail()" title="Collapse rail">‹</button>
+    </div>
+    <div class="rail-body" id="railBody">
+
+      <!-- Event Controls -->
+      <div class="ctrl-group open" id="grp-event">
+        <div class="ctrl-group-header" onclick="toggleGroup('grp-event')">
+          <span class="ctrl-group-title">Event Controls</span>
+          <span class="ctrl-group-chevron" id="chev-grp-event">▾</span>
+        </div>
+        <div class="ctrl-group-body">
+          <div class="ctrl-row">
+            <label class="ctrl-label">Event Family</label>
+            <select class="ctrl-select" onchange="onControlChange()">
+              <option value="earnings" selected>Earnings</option>
+              <option value="fomc" disabled>FOMC (coming)</option>
+              <option value="cpi" disabled>CPI Release (coming)</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Event Subtype</label>
+            <select class="ctrl-select" id="ctrl-subtype" onchange="onControlChange()">
+              <option value="all" selected>All subtypes</option>
+              <option value="double_beat">Double Beat</option>
+              <option value="eps_beat">EPS Beat only</option>
+              <option value="miss">Miss / Shortfall</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Date Range</label>
+            <select class="ctrl-select" id="ctrl-daterange" onchange="onControlChange()">
+              <option value="all" selected>All available (2019–2024)</option>
+              <option value="5y">Last 5 years</option>
+              <option value="3y">Last 3 years</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Report Timing</label>
+            <select class="ctrl-select" onchange="onControlChange()">
+              <option value="all" selected>All (AMC + BMO)</option>
+              <option value="amc">After Market Close</option>
+              <option value="bmo">Before Market Open</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Guidance</label>
+            <select class="ctrl-select" id="ctrl-guidance" onchange="onControlChange()">
+              <option value="all" selected>All guidance</option>
+              <option value="raised">Raised</option>
+              <option value="maintained">Maintained</option>
+              <option value="lowered">Lowered</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Time Controls -->
+      <div class="ctrl-group open" id="grp-time">
+        <div class="ctrl-group-header" onclick="toggleGroup('grp-time')">
+          <span class="ctrl-group-title">Time Controls</span>
+          <span class="ctrl-group-chevron" id="chev-grp-time">▾</span>
+        </div>
+        <div class="ctrl-group-body">
+          <div class="ctrl-row">
+            <label class="ctrl-label">Pre-event window</label>
+            <select class="ctrl-select">
+              <option value="5" selected>T−5 trading days</option>
+              <option value="10">T−10 trading days</option>
+              <option value="30">T−30 trading days</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Post-event window</label>
+            <select class="ctrl-select">
+              <option value="10" selected>T+10 trading days</option>
+              <option value="20">T+20 trading days</option>
+              <option value="5">T+5 trading days</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Frequency</label>
+            <select class="ctrl-select">
+              <option value="daily" selected>Daily</option>
+              <option value="hourly" disabled>Hourly (Adv.)</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Price reference</label>
+            <select class="ctrl-select">
+              <option value="close" selected>T0 close → T+1 close</option>
+              <option value="open">T0 close → T+1 open</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Benchmark -->
+      <div class="ctrl-group open" id="grp-bench">
+        <div class="ctrl-group-header" onclick="toggleGroup('grp-bench')">
+          <span class="ctrl-group-title">Benchmark</span>
+          <span class="ctrl-group-chevron" id="chev-grp-bench">▾</span>
+        </div>
+        <div class="ctrl-group-body">
+          <div class="ctrl-row">
+            <label class="ctrl-label">Benchmark</label>
+            <select class="ctrl-select">
+              <option value="none">None (raw return)</option>
+              <option value="spy" selected>S&amp;P 500 (SPY)</option>
+              <option value="qqq">Nasdaq 100 (QQQ)</option>
+              <option value="smh">Semis ETF (SMH)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Market Regime -->
+      <div class="ctrl-group" id="grp-regime">
+        <div class="ctrl-group-header" onclick="toggleGroup('grp-regime')">
+          <span class="ctrl-group-title">Market Regime</span>
+          <span class="ctrl-group-chevron" id="chev-grp-regime">▸</span>
+        </div>
+        <div class="ctrl-group-body">
+          <div class="ctrl-row">
+            <label class="ctrl-label">VIX Range</label>
+            <select class="ctrl-select" id="ctrl-vix" onchange="onControlChange()">
+              <option value="all" selected>All VIX levels</option>
+              <option value="low">Below 15 (low vol)</option>
+              <option value="mid">15–25 (normal)</option>
+              <option value="high">Above 25 (elevated)</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Market Trend</label>
+            <select class="ctrl-select" id="ctrl-trend" onchange="onControlChange()">
+              <option value="all" selected>All trends</option>
+              <option value="bull">Uptrend (bull)</option>
+              <option value="neutral">Sideways</option>
+              <option value="bear">Downtrend (bear)</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Starting IV %ile</label>
+            <select class="ctrl-select">
+              <option value="all" selected>All levels</option>
+              <option value="high">Above 60th %ile</option>
+              <option value="low">Below 40th %ile</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistical -->
+      <div class="ctrl-group" id="grp-stats">
+        <div class="ctrl-group-header" onclick="toggleGroup('grp-stats')">
+          <span class="ctrl-group-title">Statistical</span>
+          <span class="ctrl-group-chevron" id="chev-grp-stats">▸</span>
+        </div>
+        <div class="ctrl-group-body">
+          <div class="ctrl-row">
+            <label class="ctrl-label">Central Tendency</label>
+            <select class="ctrl-select">
+              <option value="median" selected>Median</option>
+              <option value="mean">Mean</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Confidence Band</label>
+            <select class="ctrl-select">
+              <option value="50">50% (25th–75th %ile)</option>
+              <option value="90">90% (5th–95th %ile)</option>
+            </select>
+          </div>
+          <div class="ctrl-row">
+            <label class="ctrl-label">Min. sample size</label>
+            <input type="number" class="ctrl-input" id="ctrl-minsample" value="5" min="3" max="23" onchange="onControlChange()">
+          </div>
+          <div class="ctrl-checkbox-row">
+            <input type="checkbox" id="chk-outliers" checked onchange="onControlChange()">
+            <label for="chk-outliers">Include outliers</label>
+          </div>
+          <div class="ctrl-checkbox-row">
+            <input type="checkbox" id="chk-overlapping" onchange="onControlChange()">
+            <label for="chk-overlapping">Exclude overlapping events</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Display -->
+      <div class="ctrl-group" id="grp-display">
+        <div class="ctrl-group-header" onclick="toggleGroup('grp-display')">
+          <span class="ctrl-group-title">Display</span>
+          <span class="ctrl-group-chevron" id="chev-grp-display">▸</span>
+        </div>
+        <div class="ctrl-group-body">
+          <div class="ctrl-checkbox-row">
+            <input type="checkbox" id="show-median" checked>
+            <label for="show-median">Median path</label>
+          </div>
+          <div class="ctrl-checkbox-row">
+            <input type="checkbox" id="show-band" checked>
+            <label for="show-band">Historical range (25–75th)</label>
+          </div>
+          <div class="ctrl-checkbox-row">
+            <input type="checkbox" id="show-current" checked>
+            <label for="show-current">Current event overlay</label>
+          </div>
+          <div class="ctrl-checkbox-row">
+            <input type="checkbox" id="show-individuals">
+            <label for="show-individuals">Individual event paths</label>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /rail-body -->
+  </aside>
+
+  <!-- CENTER: Main Canvas -->
+  <main class="main-canvas">
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn" data-tab="price-impact" onclick="switchTab('price-impact')">Price Impact</button>
+      <button class="tab-btn" data-tab="implied-vol" onclick="switchTab('implied-vol')">Implied Volatility</button>
+      <button class="tab-btn disabled" title="Surface &amp; Skew — Advanced tier">Surface &amp; Skew</button>
+      <button class="tab-btn disabled" title="Historical Analogues — Advanced tier">Hist. Analogues</button>
+      <button class="tab-btn disabled" title="Peer Comparison — Advanced tier">Peer Comparison</button>
+      <button class="tab-btn disabled" title="Scenarios — Advanced tier">Scenarios</button>
+      <button class="tab-btn disabled pro-tier" title="Strategy History — Professional tier">Strategy History</button>
+      <button class="tab-btn" data-tab="event-history" onclick="switchTab('event-history')">Event History</button>
+      <button class="tab-btn" data-tab="methodology" onclick="switchTab('methodology')">Methodology</button>
+    </nav>
+
+    <!-- Tab Content -->
+    <div class="tab-panels" id="tabPanels">
+
+      <!-- ========== OVERVIEW ========== -->
+      <section class="tab-panel active" id="tab-overview">
+
+        <!-- Metric strip -->
+        <div class="metric-strip" id="metricStrip">
+          <div class="metric-card featured">
+            <div class="metric-label">Current Implied Move</div>
+            <div class="metric-value mono">±8.2%</div>
+            <div class="metric-sub">
+              <span style="background:rgba(58,124,165,0.1);color:var(--blue);padding:2px 7px;border-radius:3px;font-weight:600;font-size:10px">~33% chance of &gt;±8.2% by Nov 22</span>
+            </div>
+            <button class="inspect-btn" onclick="openMethodology('implied-move')" title="Methodology">?</button>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Median Actual Move</div>
+            <div class="metric-value mono positive">+7.6%</div>
+            <div class="metric-sub">avg: +6.1% · N=21</div>
+            <button class="inspect-btn" onclick="openMethodology('actual-move')" title="Methodology">?</button>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Actual &gt; Implied Rate</div>
+            <div class="metric-value mono sm" id="beat-rate-val">9 / 20</div>
+            <div class="metric-sub" id="beat-rate-pct">45% · N=20 events</div>
+            <button class="inspect-btn" onclick="openMethodology('beat-rate')" title="Methodology">?</button>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Current ATM IV</div>
+            <div class="metric-value mono">68.4%</div>
+            <div class="metric-sub">72nd %ile · 5-yr range</div>
+            <button class="inspect-btn" onclick="openMethodology('atm-iv')" title="Methodology">?</button>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Event Premium</div>
+            <div class="metric-value mono">34.2 pts</div>
+            <div class="metric-sub">+8.1 pts vs. median (26.1)</div>
+            <button class="inspect-btn" onclick="openMethodology('iv-crush')" title="Methodology">?</button>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Median IV Crush</div>
+            <div class="metric-value mono negative">−38.4%</div>
+            <div class="metric-sub">T0→T+1 · N=21</div>
+            <button class="inspect-btn" onclick="openMethodology('iv-crush')" title="Methodology">?</button>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Continuation Rate</div>
+            <div class="metric-value mono">73%</div>
+            <div class="metric-sub">T+1→T+5 after positive gap · N=15 beats</div>
+            <button class="inspect-btn" onclick="openMethodology('continuation')" title="Methodology">?</button>
+          </div>
+        </div>
+
+        <!-- Implied Probability Lens -->
+        <div class="prob-panel">
+          <div class="prob-panel-header">
+            <span class="prob-panel-title">Implied Probability Lens</span>
+            <button class="inspect-btn" style="position:static;width:auto;height:auto;border-radius:3px;padding:2px 7px;font-size:10px" onclick="openMethodology('prob-lens')">? Methodology</button>
+          </div>
+          <div class="prob-panel-body">
+            <div class="prob-row">
+              <span class="prob-row-label">Market-implied odds</span>
+              <span class="prob-row-value blue">~33%</span>
+              <span class="prob-row-desc">probability that NVDA moves more than ±8.2% by Nov 22 expiry (ATM straddle method)</span>
+            </div>
+            <div class="prob-divider"></div>
+            <div class="prob-row">
+              <span class="prob-row-label">Historically realized</span>
+              <span class="prob-row-value copper">45%</span>
+              <span class="prob-row-desc">of the 20 most comparable events saw the actual move exceed the pre-event implied move</span>
+            </div>
+            <div class="prob-divider"></div>
+            <div class="prob-row">
+              <span class="prob-row-label">Observation</span>
+              <span class="prob-row-value" style="font-size:12px;color:var(--text-2);min-width:0;font-family:var(--font-body)"></span>
+              <span class="prob-row-desc">The realized frequency (45%) has run above the current market-implied frequency (33%) in this sample — stated as an observation, not as a recommendation. Sample: 20 events, 2019–2024, excluding COVID and crypto-collapse outliers.</span>
+            </div>
+          </div>
+          <div class="prob-panel-footer">
+            Method: ATM straddle implied move · lognormal approximation for probability · Realized: discrete historical frequency · N=20 comparable events · This is descriptive only.
+          </div>
+        </div>
+
+        <!-- Charts row 1: Price path + Move distribution -->
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">Historical Price Response (T−5 to T+10)</div>
+              <div class="chart-card-meta">% return relative to T0 close · SPY-adjusted · N=21</div>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#BB7333"></span>Median</span>
+                <span class="legend-item"><span class="legend-band"></span>25th–75th %ile</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#3A7CA5"></span>Current event (partial)</span>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart-price-overview"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">Actual Move Distribution</div>
+              <div class="chart-card-meta">T0 close→T+1 close · N=21 · excludes 2 outlier events</div>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#2F8F63"></span>Positive</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#C24443"></span>Negative</span>
+                <span class="legend-item" style="border-left:2px dashed #BB7333;padding-left:6px">Current implied ±8.2%</span>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart-move-dist"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts row 2: IV overview + Comparable events -->
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">IV Ramp &amp; Crush</div>
+              <div class="chart-card-meta">ATM IV · T−30 to T+10 · Median (N=21)</div>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#BB7333"></span>Historical median</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#3A7CA5"></span>Current (T−2, pre-event)</span>
+                <span class="legend-item"><span class="legend-band"></span>25th–75th %ile</span>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart-iv-overview"></canvas>
+            </div>
+          </div>
+          <div class="comparable-card">
+            <div class="comparable-card-header">
+              <span class="comparable-card-title">Most Comparable Events</span>
+              <span style="font-size:10px;color:var(--text-3)">by analogue score</span>
+            </div>
+            <div class="comparable-card-body" id="comparable-list">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Descriptive statements -->
+        <div id="statements-container"></div>
+
+      </section><!-- /overview -->
+
+      <!-- ========== PRICE IMPACT ========== -->
+      <section class="tab-panel" id="tab-price-impact">
+        <div class="tab-description">
+          Historical price response for NVDA around comparable earnings events. Returns are benchmark-adjusted relative to SPY unless otherwise noted. Actual move is measured from T0 close to T+1 close.
+        </div>
+
+        <div class="charts-row single">
+          <div class="chart-card wide">
+            <div class="chart-card-header">
+              <div class="chart-card-title">Event-Time Price Path</div>
+              <div class="chart-card-meta">T−5 to T+10 · % return indexed to 0 at T0 · SPY-adjusted · N=21</div>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#BB7333"></span>Median path</span>
+                <span class="legend-item"><span class="legend-band"></span>25th–75th %ile band</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#3A7CA5"></span>Current event (partial)</span>
+              </div>
+            </div>
+            <div class="chart-wrap tall">
+              <canvas id="chart-price-full"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">Return Distribution (T0→T+1)</div>
+              <div class="chart-card-meta">N=21 events · excludes COVID and crypto outliers</div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart-return-hist"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">EPS Surprise vs. T+1 Return</div>
+              <div class="chart-card-meta">EPS surprise (%) vs. actual move (%) · N=21</div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart-scatter"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-table-card">
+          <div class="summary-table-header">Price Return Summary by Window</div>
+          <div class="data-table-wrap">
+            <table class="data-table" id="price-summary-table">
+              <thead>
+                <tr>
+                  <th>Window</th>
+                  <th>Median</th>
+                  <th>Mean</th>
+                  <th>25th %ile</th>
+                  <th>75th %ile</th>
+                  <th>% Positive</th>
+                  <th>N</th>
+                </tr>
+              </thead>
+              <tbody id="price-summary-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== IMPLIED VOLATILITY ========== -->
+      <section class="tab-panel" id="tab-implied-vol">
+        <div class="tab-description">
+          Implied volatility behavior for NVDA around comparable earnings events. ATM IV from the at-the-money strike, interpolated to constant maturity. All calculations disclosed in the Methodology tab.
+        </div>
+
+        <div class="charts-row single">
+          <div class="chart-card wide">
+            <div class="chart-card-header">
+              <div class="chart-card-title">IV Ramp &amp; Crush (T−30 to T+10)</div>
+              <div class="chart-card-meta">ATM implied volatility · constant maturity · Median (N=21) vs. current event</div>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#BB7333"></span>Historical median IV</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#3A7CA5"></span>Current event IV (T−2)</span>
+                <span class="legend-item"><span class="legend-band"></span>25th–75th %ile</span>
+              </div>
+            </div>
+            <div class="chart-wrap tall">
+              <canvas id="chart-iv-full"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">Implied vs. Actual Move</div>
+              <div class="chart-card-meta">Pre-event implied move vs. |actual T0→T+1 move| · N=21</div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart-iv-scatter"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">IV Crush Distribution (T0→T+1)</div>
+              <div class="chart-card-meta">% change in ATM IV from pre- to post-event · N=21</div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart-iv-crush"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-table-card">
+          <div class="summary-table-header">IV Summary Statistics</div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Metric</th><th>Median</th><th>Mean</th><th>25th %ile</th><th>75th %ile</th><th>N</th>
+                </tr>
+              </thead>
+              <tbody id="iv-summary-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== EVENT HISTORY ========== -->
+      <section class="tab-panel" id="tab-event-history">
+        <div class="tab-description">
+          Complete record of all NVDA earnings events in the sample. Click any row to inspect. Excluded events are shown greyed with the exclusion reason. Sort by any column header. Every aggregate in other tabs traces back to these rows.
+        </div>
+        <div class="data-table-wrap" style="max-height: calc(100vh - 260px)">
+          <table class="data-table" id="full-event-table">
+            <thead>
+              <tr>
+                <th class="sortable" onclick="sortEvents('date')">Date ↕</th>
+                <th>Quarter</th>
+                <th>Timing</th>
+                <th class="sortable" onclick="sortEvents('epsSurprise')">EPS Surp ↕</th>
+                <th class="sortable" onclick="sortEvents('revSurprise')">Rev Surp ↕</th>
+                <th>Guidance</th>
+                <th class="sortable" onclick="sortEvents('impliedMove')">Impl. Move ↕</th>
+                <th class="sortable" onclick="sortEvents('actualMove')">Act. Move ↕</th>
+                <th>A/I Ratio</th>
+                <th class="sortable" onclick="sortEvents('ivBefore')">IV Before ↕</th>
+                <th class="sortable" onclick="sortEvents('ivCrush')">IV Crush ↕</th>
+                <th>Type</th>
+                <th>Flags / Notes</th>
+              </tr>
+            </thead>
+            <tbody id="full-event-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ========== METHODOLOGY ========== -->
+      <section class="tab-panel" id="tab-methodology">
+        <div class="method-content">
+          <h2>Methodology</h2>
+          <p class="method-intro">
+            This page documents every calculation, data-source choice, and definitional decision used in this study. Selecting a chart or metric elsewhere opens the relevant section directly. All methodology is versioned; studies record the methodology version at save time to support reproducibility.
+          </p>
+          <div class="method-grid" id="method-grid"></div>
+        </div>
+      </section>
+
+    </div><!-- /tab-panels -->
+
+    <!-- Empty state (shown when filters produce < min sample) -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-state-inner">
+        <div class="empty-icon">⚠</div>
+        <div class="empty-title">Insufficient Sample</div>
+        <div class="empty-body">The current filters produce fewer than the minimum required observations. Statistical outputs are not reliable below this threshold and are not displayed.</div>
+        <div class="empty-count">N = <span id="empty-n">2</span> (minimum: 5)</div>
+        <button class="btn-reset" onclick="resetFilters()">Reset Filters</button>
+      </div>
+    </div>
+
+  </main><!-- /main-canvas -->
+
+  <!-- RIGHT: Observation Drawer -->
+  <aside class="obs-drawer" id="obsDrawer">
+    <div class="drawer-header">
+      <span class="drawer-title">Analogues &amp; Observations</span>
+      <button class="drawer-close-btn" onclick="toggleDrawer()" title="Close">›</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-section-label" style="margin-bottom:10px">MOST COMPARABLE · by analogue score</div>
+      <div id="analogue-cards"></div>
+      <div style="margin-top:16px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:10px;color:var(--text-3);line-height:1.5">
+        Analogue scores weight: event subtype (25%), IV environment (20%), market regime (20%), surprise magnitude (15%), EPS trend (10%), guidance (10%). Scores are not predictive. Adjust weights in Analogues tab (Advanced tier).
+      </div>
+    </div>
+  </aside>
+
+</div><!-- /workbench-wrap -->
+
+<!-- ====================================================
+     HISTORY BAR (bottom, expandable)
+     ==================================================== -->
+<div class="history-bar" id="historyBar">
+  <div class="history-bar-header" onclick="toggleHistory()">
+    <span class="history-bar-title">Event History</span>
+    <div class="history-bar-chips">
+      <span class="chip chip-sm chip-label">NVDA</span>
+      <span class="chip chip-sm chip-label">Earnings</span>
+      <span class="chip chip-sm chip-label">2019–2024</span>
+      <span class="chip chip-sm chip-label" id="history-obs-chip">N=21</span>
+    </div>
+    <div class="history-spacer"></div>
+    <button class="history-expand-btn">
+      <svg width="12" height="7" viewBox="0 0 12 7" fill="none">
+        <path d="M1 6l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Expand
+    </button>
+  </div>
+  <div class="history-table-wrap">
+    <table class="data-table" id="mini-event-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Quarter</th>
+          <th>EPS Surprise</th>
+          <th>Impl. Move</th>
+          <th>Actual Move</th>
+          <th>A/I Ratio</th>
+          <th>IV Before→After</th>
+          <th>IV Crush</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody id="mini-event-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ====================================================
+     METHODOLOGY MODAL
+     ==================================================== -->
+<div class="method-modal-overlay" id="methodModal">
+  <div class="method-modal">
+    <div class="method-modal-header">
+      <span class="method-modal-title" id="modal-title">Methodology</span>
+      <button class="method-modal-close" onclick="closeMethodology()">✕</button>
+    </div>
+    <div class="method-modal-body" id="modal-body"></div>
+    <div class="method-modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
